@@ -104,8 +104,8 @@
   <div class="stats" id="stats"></div>
 
   <section class="featured">
-    <h2>Changelog entries per month</h2>
-    <p class="desc">Total changes shipped each month, across all releases. Months before release notes began are omitted; edge months are partial and shown faded. Click a bar to open that month's release notes. Dashed lines mark Anthropic model launches.</p>
+    <h2>Changelog entries per day</h2>
+    <p class="desc">Average changelog entries shipped per day, month by month. Months before release notes began are omitted; the faded bar is the current month so far. Click a bar to open that month's release notes. Dashed lines mark Anthropic model launches.</p>
     <span class="takeaway" id="tk-monthly"></span>
     <div class="panel"><svg id="monthly" viewBox="0 0 1000 300"></svg></div>
   </section>
@@ -345,24 +345,31 @@ function drawMonthly() {
   });
   const keys = Object.keys(byMonth).sort();
   while (keys.length && byMonth[keys[0]] === 0) keys.shift();  // months before release notes began
-  const max = Math.max(...keys.map(k => byMonth[k]));
+  const lastMon = fmt(last).slice(0,7);
+  const daysIn = k => k === lastMon
+    ? Math.max(1, last.getUTCDate())
+    : new Date(+k.slice(0,4), +k.slice(5,7), 0).getDate();
+  const rateOf = k => byMonth[k] / daysIn(k);
+  const max = Math.max(...keys.map(rateOf));
   const bw = (W - PAD - 16) / keys.length;
   // y gridlines (nice step ~6 lines)
   const step = (m => { const raw = m / 6, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p; return (n<=1?1:n<=2?2:n<=5?5:10)*p; })(max);
   for (let v = 0; v <= max; v += step) {
     const y = H - BOT - v / max * (H - BOT - 48);
-    svg.insertAdjacentHTML('beforeend', `<line x1="${PAD}" y1="${y}" x2="${W-16}" y2="${y}" stroke="#21262d"/><text x="${PAD-8}" y="${y+4}" text-anchor="end">${v}</text>`);
+    svg.insertAdjacentHTML('beforeend', `<line x1="${PAD}" y1="${y}" x2="${W-16}" y2="${y}" stroke="#21262d"/><text x="${PAD-8}" y="${y+4}" text-anchor="end">${Math.round(v)}</text>`);
   }
   keys.forEach((k, i) => {
     const n = byMonth[k];
-    const partial = k === fmt(first).slice(0,7) || k === fmt(last).slice(0,7);
-    const bh = n / max * (H - BOT - 48);
+    const rate = rateOf(k);
+    const partial = k === lastMon;
+    const bh = rate / max * (H - BOT - 48);
     const x = PAD + i * bw;
     const label = new Date(k + '-15').toLocaleString('en', {month:'short', year:'2-digit'});
+    const rateLabel = rate < 10 ? rate.toFixed(1) : Math.round(rate);
     svg.insertAdjacentHTML('beforeend',
-      `<rect x="${x+2}" y="${H-BOT-bh}" width="${bw-4}" height="${bh}" rx="3" fill="#d97757" opacity="${partial ? 0.35 : 0.85}" data-k="${k}" data-n="${n}" data-p="${partial ? 1 : 0}"/>` +
+      `<rect x="${x+2}" y="${H-BOT-bh}" width="${bw-4}" height="${bh}" rx="3" fill="#d97757" opacity="${partial ? 0.35 : 0.85}" data-k="${k}" data-n="${n}" data-r="${rateLabel}" data-p="${partial ? 1 : 0}"/>` +
       (i % Math.max(1, Math.ceil(36 / bw)) === 0 ? `<text x="${x+bw/2}" y="${H-BOT+16}" text-anchor="middle">${label}</text>` : '') +
-      (n > 0 && bw >= 30 ? `<text x="${x+bw/2}" y="${H-BOT-bh-6}" text-anchor="middle" style="fill:#e6edf3">${n}</text>` : ''));
+      (n > 0 && bw >= 30 ? `<text x="${x+bw/2}" y="${H-BOT-bh-6}" text-anchor="middle" style="fill:#e6edf3">${rateLabel}</text>` : ''));
   });
   const firstDocVer = {};
   R.forEach(r => { const k = r.date.slice(0,7); if (r.changes > 0 && !(k in firstDocVer)) firstDocVer[k] = r.version; });
@@ -372,7 +379,7 @@ function drawMonthly() {
       rect.addEventListener('click', () => window.open(monthUrl(rect.dataset.k, firstDocVer[rect.dataset.k]), '_blank'));
     }
     rect.addEventListener('mousemove', e => showTip(e,
-      `<b>${rect.dataset.k}</b>: ${rect.dataset.n} changelog entries across ${relByMonth[rect.dataset.k]} releases${rect.dataset.p === '1' ? ' (partial month)' : ''}`));
+      `<b>${rect.dataset.k}</b>: ~${rect.dataset.r}/day · ${rect.dataset.n} changelog entries across ${relByMonth[rect.dataset.k]} releases${rect.dataset.p === '1' ? ' (month so far)' : ''}`));
     rect.addEventListener('mouseleave', hideTip);
   });
   // model launch markers
