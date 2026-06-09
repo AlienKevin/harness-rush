@@ -183,13 +183,16 @@ const MODEL_BY_DAY = Object.fromEntries(EVENTS.map(ev => [ev.date, ev.label]));
 const releaseUrl = v => `https://github.com/openai/codex/releases/tag/rust-v${v}`;
 const monthUrl = (k, ver) => releaseUrl(ver);
 function drawEvents(svg, xOf, W, bottom) {
-  EVENTS.forEach(ev => {
-    const mx = xOf(ev.t);
-    if (mx == null || mx < 30 || ev.t < chartStart.getTime()) return;
-    const narrow = W < 640;
+  const narrow = W < 640;
+  const pts = EVENTS
+    .map(ev => ({ ev, mx: xOf(ev.t) }))
+    .filter(p => p.mx != null && p.mx >= 30 && p.ev.t >= chartStart.getTime())
+    .sort((a, b) => a.mx - b.mx);
+  let lastVX = -Infinity;  // nudge vertical labels right until none overlap
+  pts.forEach(p => { p.vx = Math.max(p.mx + 3, lastVX + 10); lastVX = p.vx; });
+  pts.forEach(({ ev, mx, vx }) => {
     const ly = 12 + ev.row * 13;
     const anchorEnd = mx > W - 140;
-    const vx = ev.row % 2 ? mx - 10 : mx + 2;  // alternate sides so close launches don't overlap
     svg.insertAdjacentHTML('beforeend',
       `<line x1="${mx}" y1="${narrow ? 8 : ly + 4}" x2="${mx}" y2="${bottom}" stroke="${MODEL_COLOR}" stroke-dasharray="3,3" opacity="0.5"/>` +
       (narrow
