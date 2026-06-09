@@ -79,7 +79,7 @@ function cardStats(el, R) {
   const total = R.reduce((s,r)=>s+r.changes, 0);
   document.getElementById(el).innerHTML = [
     [R.length, 'releases'],
-    [(R.length / (spanDays/7)).toFixed(1), 'releases / week'],
+    [(R.length / spanDays).toFixed(1), 'releases / day'],
     [med < 1 ? Math.round(med*24)+'h' : med.toFixed(1)+'d', 'median gap'],
     [total.toLocaleString(), 'changelog entries'],
   ].map(([n,l]) => `<div><div class="num">${n}</div><div class="label">${l}</div></div>`).join('');

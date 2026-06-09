@@ -107,8 +107,6 @@ for slug, c in PAGES.items():
     out = re.sub(r'const MODELS = \[.*?\];', 'const MODELS = ' + json.dumps(c['models']) + ';', out,
                  count=1, flags=re.S)
     # phrasing that must stay accurate for both products (Codex had a 39-day pause)
-    out = subst(out, 'releases per week, every week, for ${months} months straight</b>',
-                'releases per week for ${months} months straight</b>', 1)
     out = subst(out, 'The pace never breaks: the <b>longest pause', 'The <b>longest pause', 1)
     # adaptive axis tick steps (Codex peaks at ~292 entries / 39-day gap)
     out = subst(out, 'for (let v = 0; v <= maxC; v += 10) {',

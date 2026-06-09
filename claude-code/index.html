@@ -165,7 +165,7 @@ const totalChanges = R.reduce((s,r)=>s+r.changes, 0);
 
 const stats = [
   [R.length, 'releases'],
-  [(R.length / (spanDays/7)).toFixed(1), 'releases / week'],
+  [(R.length / spanDays).toFixed(1), 'releases / day'],
   [medianGap < 1 ? Math.round(medianGap*24)+'h' : medianGap.toFixed(1)+'d', 'median gap'],
   [totalChanges.toLocaleString(), 'changelog entries'],
 ];
@@ -197,7 +197,7 @@ function drawEvents(svg, xOf, W, bottom) {
 
 // ---- takeaways (all computed from the data) ----
 (function() {
-  const perWeek = (R.length / (spanDays/7)).toFixed(1);
+  const perDay = (R.length / spanDays).toFixed(1);
   const months = Math.round(spanDays / 30.4);
 
   // size growth over documented releases only: zero-entry releases are usually
@@ -236,7 +236,7 @@ function drawEvents(svg, xOf, W, bottom) {
   const lateM = Math.round(avgOf(fullMonths.slice(-3)));
 
   document.getElementById('big-takeaways').innerHTML = [
-    `Claude Code has shipped <b>${perWeek} releases per week for ${months} months straight</b>. The median gap between releases is just ${medGapStr}.`,
+    `Claude Code has shipped <b>${perDay} releases per day for ${months} months straight</b>. The median gap between releases is just ${medGapStr}.`,
     `The releases themselves are getting much bigger: the average documented release grew from <b>~${Math.round(avgEarly)} changelog entries in its first months to ~${Math.round(avgLate)} today, roughly ${growth}× more</b>. Frequency held steady; volume exploded.`,
     `The <b>longest pause in the entire history is ${Math.round(maxGap)} days</b> (over the ${maxGapStart.getMonth() === 11 ? 'December holidays' : 'period starting ' + fmt(maxGapStart)}). No other gap exceeded ${Math.round(secondGap)} days.`,
   ].map(t => `<li>${t}</li>`).join('');
