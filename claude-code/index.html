@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness Rush · Claude Code Release Cadence</title>
+<meta name="description" content="Visualizing the release cadence of Claude Code from npm publish data and release notes.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #2d333b;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #d97757;
+    --accent-soft: rgba(217, 119, 87, 0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 48px 24px 80px; }
+  header h1 { font-size: 2rem; letter-spacing: -0.02em; }
+  header h1 .accent { color: var(--accent); }
+  header p.sub { color: var(--muted); margin-top: 8px; max-width: 640px; }
+  header p.sub a { color: var(--accent); text-decoration: none; }
+  header p.sub a:hover { text-decoration: underline; }
+
+  .takeaways { background: var(--accent-soft); border: 1px solid rgba(217,119,87,0.45); border-radius: 12px; padding: 22px 26px; margin-top: 28px; }
+  .takeaways h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 10px; }
+  .takeaways li { margin: 9px 0 9px 20px; font-size: 1.05rem; line-height: 1.45; }
+  .takeaways li::marker { color: var(--accent); }
+  .takeaways b { color: var(--accent); }
+  .takeaway { display: block; border-left: 3px solid var(--accent); background: var(--panel); padding: 10px 14px; border-radius: 0 8px 8px 0; margin-bottom: 14px; font-size: 0.92rem; }
+  .takeaway b { color: var(--accent); }
+  .takeaway::before { content: "Takeaway: "; color: var(--accent); font-weight: 700; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 32px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .stat .num { font-size: 1.7rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat .label { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+
+  section { margin-top: 40px; }
+  section h2 { font-size: 1.15rem; margin-bottom: 4px; }
+  section.featured h2 { font-size: 1.35rem; }
+  section.featured .panel { border-color: var(--accent); box-shadow: 0 0 24px rgba(217,119,87,0.12); }
+  section p.desc { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; overflow-x: auto; }
+  .panel svg { display: block; width: 100%; height: auto; }
+
+  /* heatmap */
+  .heatmap { display: flex; gap: 3px; }
+  .hm-col { display: flex; flex-direction: column; gap: 3px; }
+  .hm-cell { width: 11px; height: 11px; border-radius: 2px; background: #1c2128; }
+  .hm-cell.l1 { background: #3d2218; }
+  .hm-cell.l2 { background: #7a3b22; }
+  .hm-cell.l3 { background: #b85c35; }
+  .hm-cell.l4 { background: #ed8a5f; }
+  .hm-cell.model { outline: 1.5px solid #d4d4d4; outline-offset: -1px; }
+  .hm-months { display: flex; font-size: 0.7rem; color: var(--muted); margin-bottom: 6px; position: relative; height: 14px; }
+  .hm-months span { position: absolute; }
+  .hm-legend { display: flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.7rem; color: var(--muted); }
+  .hm-legend .hm-cell { width: 11px; height: 11px; }
+
+  svg text { fill: var(--muted); font-size: 11px; font-family: inherit; }
+  svg .axis line, svg .axis path { stroke: var(--border); }
+
+  .tooltip {
+    position: fixed; pointer-events: none; background: #21262d; border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font-size: 0.78rem; max-width: min(340px, 90vw);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5); z-index: 10; display: none;
+  }
+  .tooltip b { color: var(--accent); }
+
+  footer { margin-top: 56px; color: var(--muted); font-size: 0.78rem; border-top: 1px solid var(--border); padding-top: 20px; }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 28px 14px 56px; }
+    header h1 { font-size: 1.4rem; }
+    .takeaways { padding: 16px 18px; }
+    .takeaways li { font-size: 0.95rem; }
+    section.featured h2 { font-size: 1.15rem; }
+    .stat { padding: 12px; }
+    .stat .num { font-size: 1.3rem; }
+    .panel { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><a href="../" style="color:inherit;text-decoration:none">Harness Rush</a> <span class="accent">/</span> Claude Code Release Cadence</h1>
+    <p class="sub">Every release of <a href="https://www.npmjs.com/package/@anthropic-ai/claude-code">@anthropic-ai/claude-code</a>, from npm publish timestamps and the <a href="https://code.claude.com/docs/en/changelog">official changelog</a>. CLI releases only: the desktop app, IDE extensions, and Claude Code on the web ship separately and are not counted. A picture of how fast an AI coding agent ships.</p>
+  </header>
+
+  <div class="takeaways">
+    <h2>The big picture</h2>
+    <ul id="big-takeaways"></ul>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <section class="featured">
+    <h2>Changelog entries per month</h2>
+    <p class="desc">Total changes shipped each month, across all releases. Months before release notes began are omitted; edge months are partial and shown faded. Click a bar to open that month's release notes. Dashed lines mark Anthropic model launches.</p>
+    <span class="takeaway" id="tk-monthly"></span>
+    <div class="panel"><svg id="monthly" viewBox="0 0 1000 300"></svg></div>
+  </section>
+
+  <section>
+    <h2>Changelog entries per release</h2>
+    <p class="desc">Each dot is a release, sized and positioned by how many changelog entries it shipped. The white line is the rolling average; dashed lines mark Anthropic model launches. Hover for details, click a dot to open its release notes.</p>
+    <span class="takeaway" id="tk-scatter"></span>
+    <div class="panel"><svg id="scatter" viewBox="0 0 1000 320"></svg></div>
+  </section>
+
+  <section>
+    <h2>Release heatmap</h2>
+    <p class="desc">One cell per day, GitHub-style. Darker orange = more releases published that day. Click a day to open its release notes.</p>
+    <span class="takeaway" id="tk-heatmap"></span>
+    <div class="panel">
+      <div class="hm-months" id="hm-months"></div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="hm-legend">Less
+        <div class="hm-cell"></div><div class="hm-cell l1"></div><div class="hm-cell l2"></div><div class="hm-cell l3"></div><div class="hm-cell l4"></div>
+      More<span style="margin-left:16px"></span><div class="hm-cell model"></div> Anthropic model launch</div>
+    </div>
+  </section>
+
+  <footer>
+    Data: npm registry publish times + <a href="https://code.claude.com/docs/en/changelog">code.claude.com/docs/en/changelog</a>. Dates are npm publish times (UTC), which can differ from the dates shown on the official changelog. Model launch dates are taken from changelog announcements and first mentions. Generated <span id="gen-date"></span>. Not affiliated with Anthropic.
+  </footer>
+</div>
+<div class="tooltip" id="tooltip"></div>
+<script src="data.js"></script>
+<script>
+const R = window.RELEASES.map(r => ({...r, d: new Date(r.date)}));
+const tooltip = document.getElementById('tooltip');
+const fmt = d => d.toISOString().slice(0,10);
+const MS_DAY = 86400000;
+
+function showTip(e, html) {
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+  tooltip.style.left = Math.max(8, Math.min(e.clientX + 14, window.innerWidth - tooltip.offsetWidth - 8)) + 'px';
+  tooltip.style.top = (e.clientY + 14) + 'px';
+}
+function hideTip() { tooltip.style.display = 'none'; }
+
+// ---- stats ----
+const first = R[0].d, last = R[R.length-1].d;
+// all charts start at the first month with recorded release notes, so x-axes align
+const firstDoc = (R.find(r => r.changes > 0) || R[0]).d;
+const chartStart = new Date(Date.UTC(firstDoc.getUTCFullYear(), firstDoc.getUTCMonth(), 1));
+const spanDays = (last - first) / MS_DAY;
+const gaps = R.slice(1).map((r,i) => (r.d - R[i].d) / MS_DAY);
+const sortedGaps = [...gaps].sort((a,b)=>a-b);
+const medianGap = sortedGaps[Math.floor(sortedGaps.length/2)];
+const byDay = {};
+R.forEach(r => { const k = fmt(r.d); byDay[k] = (byDay[k]||0)+1; });
+const totalChanges = R.reduce((s,r)=>s+r.changes, 0);
+
+const stats = [
+  [R.length, 'releases'],
+  [(R.length / (spanDays/7)).toFixed(1), 'releases / week'],
+  [medianGap < 1 ? Math.round(medianGap*24)+'h' : medianGap.toFixed(1)+'d', 'median gap'],
+  [totalChanges.toLocaleString(), 'changelog entries'],
+];
+document.getElementById('stats').innerHTML = stats.map(([n,l]) =>
+  `<div class="stat"><div class="num">${n}</div><div class="label">${l}</div></div>`).join('');
+document.getElementById('gen-date').textContent = fmt(last);
+
+// ---- Anthropic model launches (dates from changelog announcements / first mentions) ----
+const MODELS = [["Sonnet 3.7", "2025-02-24"], ["Opus 4 / Sonnet 4", "2025-05-22"], ["Opus 4.1", "2025-08-05"], ["Sonnet 4.5", "2025-09-29"], ["Haiku 4.5", "2025-10-15"], ["Opus 4.5", "2025-11-24"], ["Opus 4.6", "2026-02-05"], ["Sonnet 4.6", "2026-02-17"], ["Opus 4.7", "2026-04-16"], ["Opus 4.8", "2026-05-28"], ["Fable 5", "2026-06-09"]];
+const MODEL_COLOR = '#d4d4d4';
+const EVENTS = MODELS.map(([name, ds], i) =>
+  ({ label: name, t: new Date(ds + 'T12:00:00Z').getTime(), date: ds, row: i % 2 }));
+const MODEL_BY_DAY = Object.fromEntries(EVENTS.map(ev => [ev.date, ev.label]));
+// links to the original release notes
+const releaseUrl = v => `https://code.claude.com/docs/en/changelog#${v.replace(/\./g, '-')}`;
+const monthUrl = (k, ver) => releaseUrl(ver);
+function drawEvents(svg, xOf, W, bottom) {
+  EVENTS.forEach(ev => {
+    const mx = xOf(ev.t);
+    if (mx == null || mx < 30) return;
+    const narrow = W < 640;
+    const ly = 12 + ev.row * 13;
+    const anchorEnd = mx > W - 140;
+    svg.insertAdjacentHTML('beforeend',
+      `<line x1="${mx}" y1="${narrow ? 8 : ly + 4}" x2="${mx}" y2="${bottom}" stroke="${MODEL_COLOR}" stroke-dasharray="3,3" opacity="0.5"/>` +
+      (narrow ? '' : `<text x="${mx + (anchorEnd ? -4 : 4)}" y="${ly}" ${anchorEnd ? 'text-anchor="end"' : ''} style="fill:${MODEL_COLOR}">${ev.label}</text>`));
+  });
+}
+
+// ---- takeaways (all computed from the data) ----
+(function() {
+  const perWeek = (R.length / (spanDays/7)).toFixed(1);
+  const months = Math.round(spanDays / 30.4);
+
+  // size growth over documented releases only: zero-entry releases are usually
+  // missing notes (sparse early changelogs), not releases that shipped nothing
+  const documented = R.filter(r => r.changes > 0);
+  const docFirst = documented[0].d;
+  const firstWin = documented.filter(r => r.d - docFirst < 90 * MS_DAY);
+  const lastWin = documented.filter(r => last - r.d < 90 * MS_DAY);
+  const avgEarly = firstWin.reduce((s,r)=>s+r.changes,0) / firstWin.length;
+  const avgLate = lastWin.reduce((s,r)=>s+r.changes,0) / lastWin.length;
+  const growth = Math.round(avgLate / Math.max(avgEarly, 1));
+
+  // gaps
+  const maxGap = Math.max(...gaps);
+  const maxGapIdx = gaps.indexOf(maxGap);
+  const maxGapStart = R[maxGapIdx].d;
+  const secondGap = [...gaps].sort((a,b)=>b-a)[1];
+  const medGapStr = medianGap < 1 ? Math.round(medianGap*24) + ' hours' : medianGap.toFixed(1) + ' days';
+
+  // day coverage
+  const releaseDays = Object.keys(byDay).filter(k => k >= fmt(chartStart)).length;
+  let weekdaysTotal = 0, weekdaysWith = 0;
+  for (let t = chartStart.getTime(); t <= last.getTime(); t += MS_DAY) {
+    const d = new Date(t), dow = d.getUTCDay();
+    if (dow >= 1 && dow <= 5) { weekdaysTotal++; if (byDay[fmt(d)]) weekdaysWith++; }
+  }
+  const weekdayPct = Math.round(weekdaysWith / weekdaysTotal * 100);
+  const weekendReleases = R.filter(r => [0,6].includes(r.d.getUTCDay())).length;
+
+  // monthly change volume growth (full months only)
+  const entriesByMonth = {};
+  R.forEach(r => { const k = r.date.slice(0,7); entriesByMonth[k] = (entriesByMonth[k]||0) + r.changes; });
+  const fullMonths = Object.keys(entriesByMonth).sort().slice(1, -1).filter(k => entriesByMonth[k] > 0);
+  const avgOf = ms => ms.reduce((s,k) => s + entriesByMonth[k], 0) / ms.length;
+  const earlyM = Math.round(avgOf(fullMonths.slice(0, 3)));
+  const lateM = Math.round(avgOf(fullMonths.slice(-3)));
+
+  document.getElementById('big-takeaways').innerHTML = [
+    `Claude Code has shipped <b>${perWeek} releases per week for ${months} months straight</b>. The median gap between releases is just ${medGapStr}.`,
+    `The releases themselves are getting much bigger: the average documented release grew from <b>~${Math.round(avgEarly)} changelog entries in its first months to ~${Math.round(avgLate)} today, roughly ${growth}× more</b>. Frequency held steady; volume exploded.`,
+    `The <b>longest pause in the entire history is ${Math.round(maxGap)} days</b> (over the ${maxGapStart.getMonth() === 11 ? 'December holidays' : 'period starting ' + fmt(maxGapStart)}). No other gap exceeded ${Math.round(secondGap)} days.`,
+  ].map(t => `<li>${t}</li>`).join('');
+
+  document.getElementById('tk-heatmap').innerHTML =
+    `At least one release landed on <b>${weekdayPct}% of all weekdays</b> (${releaseDays} distinct days total). Weekends aren't off-limits either: ${weekendReleases} releases landed on one.`;
+  const rangeLabel = ms => {
+    const a = new Date(ms[0] + '-15'), b = new Date(ms[ms.length-1] + '-15');
+    const am = a.toLocaleString('en', {month:'short'}), bm = b.toLocaleString('en', {month:'short'});
+    return a.getFullYear() === b.getFullYear() ? `${am}-${bm} ${a.getFullYear()}` : `${am} ${a.getFullYear()} - ${bm} ${b.getFullYear()}`;
+  };
+  document.getElementById('tk-monthly').innerHTML =
+    `Monthly change volume grew from ~${earlyM} entries per month in ${rangeLabel(fullMonths.slice(0, 3))} to <b>~${lateM.toLocaleString()} per month in ${rangeLabel(fullMonths.slice(-3))}</b>, <b>${Math.round(lateM / Math.max(earlyM, 1))}× more</b>.`;
+  document.getElementById('tk-scatter').innerHTML =
+    `Documented releases grew from ~${Math.round(avgEarly)} changelog entries each in their first months to <b>~${Math.round(avgLate)} entries each today, roughly ${growth}× more change shipped per release</b>.`;
+})();
+
+// ---- heatmap ----
+(function() {
+  const container = document.getElementById('heatmap');
+  const monthsEl = document.getElementById('hm-months');
+  const start = new Date(chartStart); start.setDate(start.getDate() - start.getDay()); // back to Sunday
+  const end = new Date(last);
+  let cur = new Date(start);
+  let col = null, weekIdx = 0;
+  const COL_W = 14;
+  const seenMonths = new Set();
+  while (cur <= end) {
+    if (cur.getDay() === 0) {
+      col = document.createElement('div');
+      col.className = 'hm-col';
+      container.appendChild(col);
+      const mk = cur.getFullYear() + '-' + (cur.getMonth()+1);
+      if (!seenMonths.has(mk) && cur.getDate() <= 7) {
+        seenMonths.add(mk);
+        const span = document.createElement('span');
+        span.textContent = cur.toLocaleString('en', {month:'short'}) + (cur.getMonth() === 0 || seenMonths.size === 1 ? ' ’' + String(cur.getFullYear()).slice(2) : '');
+        span.style.left = (weekIdx * COL_W) + 'px';
+        monthsEl.appendChild(span);
+      }
+      weekIdx++;
+    }
+    const k = fmt(cur);
+    const n = (cur >= chartStart ? byDay[k] : 0) || 0;
+    const model = MODEL_BY_DAY[k];
+    const cell = document.createElement('div');
+    cell.className = 'hm-cell' + (n>0 ? ' l'+Math.min(n,4) : '') + (model ? ' model' : '');
+    if (cur >= chartStart) {
+      const dateStr = k, count = n;
+      const vers = R.filter(r => fmt(r.d) === k).map(r => r.version);
+      cell.addEventListener('mousemove', e => showTip(e,
+        `<b>${dateStr}</b>: ${count} release${count===1?'':'s'}${vers.length ? '<br>' + vers.join(', ') : ''}${model ? '<br><span style="color:#d4d4d4">● ' + model + ' launched</span>' : ''}`));
+      cell.addEventListener('mouseleave', hideTip);
+      const doc = R.find(r => fmt(r.d) === k && r.changes > 0);
+      if (doc) {
+        cell.style.cursor = 'pointer';
+        cell.addEventListener('click', () => window.open(releaseUrl(doc.version), '_blank'));
+      }
+    }
+    col.appendChild(cell);
+    cur = new Date(cur.getTime() + MS_DAY);
+  }
+})();
+
+// ---- shared SVG helpers ----
+function timeScale(x0, x1, w, pad) {
+  return t => pad + (t - x0) / (x1 - x0) * (w - pad - 16);
+}
+function monthTicks(svg, scaleX, y, h) {
+  const every = CHART_W < 640 ? 4 : 2;
+  const d = new Date(chartStart);
+  while (d <= last) {
+    const x = scaleX(d.getTime());
+    if (x > 30) {
+      svg.insertAdjacentHTML('beforeend',
+        `<line x1="${x}" y1="${y}" x2="${x}" y2="${h}" stroke="#21262d"/>` +
+        (d.getMonth() % every === 0 ? `<text x="${x}" y="${h+14}" text-anchor="middle">${d.toLocaleString('en',{month:'short'})} ${String(d.getFullYear()).slice(2)}</text>` : ''));
+    }
+    d.setMonth(d.getMonth() + 1);
+  }
+}
+// ---- responsive chart sizing ----
+let CHART_W = 968;
+function measureChartWidth() {
+  const svg = document.getElementById('monthly');
+  const w = svg ? svg.getBoundingClientRect().width : 0;
+  return w > 0 ? Math.max(320, Math.min(968, Math.round(w))) : 968;
+}
+// ---- monthly bars: changelog entries per month ----
+function drawMonthly() {
+  const svg = document.getElementById('monthly');
+  const W = CHART_W, H = W < 640 ? 250 : 300, PAD = W < 640 ? 40 : 46, BOT = 30;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+  const byMonth = {}, relByMonth = {};
+  R.forEach(r => {
+    const k = r.date.slice(0,7);
+    byMonth[k] = (byMonth[k]||0) + r.changes;
+    relByMonth[k] = (relByMonth[k]||0) + 1;
+  });
+  const keys = Object.keys(byMonth).sort();
+  while (keys.length && byMonth[keys[0]] === 0) keys.shift();  // months before release notes began
+  const max = Math.max(...keys.map(k => byMonth[k]));
+  const bw = (W - PAD - 16) / keys.length;
+  // y gridlines (nice step ~6 lines)
+  const step = (m => { const raw = m / 6, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p; return (n<=1?1:n<=2?2:n<=5?5:10)*p; })(max);
+  for (let v = 0; v <= max; v += step) {
+    const y = H - BOT - v / max * (H - BOT - 48);
+    svg.insertAdjacentHTML('beforeend', `<line x1="${PAD}" y1="${y}" x2="${W-16}" y2="${y}" stroke="#21262d"/><text x="${PAD-8}" y="${y+4}" text-anchor="end">${v}</text>`);
+  }
+  keys.forEach((k, i) => {
+    const n = byMonth[k];
+    const partial = k === fmt(first).slice(0,7) || k === fmt(last).slice(0,7);
+    const bh = n / max * (H - BOT - 48);
+    const x = PAD + i * bw;
+    const label = new Date(k + '-15').toLocaleString('en', {month:'short', year:'2-digit'});
+    svg.insertAdjacentHTML('beforeend',
+      `<rect x="${x+2}" y="${H-BOT-bh}" width="${bw-4}" height="${bh}" rx="3" fill="#d97757" opacity="${partial ? 0.35 : 0.85}" data-k="${k}" data-n="${n}" data-p="${partial ? 1 : 0}"/>` +
+      (i % Math.max(1, Math.ceil(36 / bw)) === 0 ? `<text x="${x+bw/2}" y="${H-BOT+16}" text-anchor="middle">${label}</text>` : '') +
+      (n > 0 && bw >= 30 ? `<text x="${x+bw/2}" y="${H-BOT-bh-6}" text-anchor="middle" style="fill:#e6edf3">${n}</text>` : ''));
+  });
+  const firstDocVer = {};
+  R.forEach(r => { const k = r.date.slice(0,7); if (r.changes > 0 && !(k in firstDocVer)) firstDocVer[k] = r.version; });
+  svg.querySelectorAll('rect').forEach(rect => {
+    if (firstDocVer[rect.dataset.k]) {
+      rect.style.cursor = 'pointer';
+      rect.addEventListener('click', () => window.open(monthUrl(rect.dataset.k, firstDocVer[rect.dataset.k]), '_blank'));
+    }
+    rect.addEventListener('mousemove', e => showTip(e,
+      `<b>${rect.dataset.k}</b>: ${rect.dataset.n} changelog entries across ${relByMonth[rect.dataset.k]} releases${rect.dataset.p === '1' ? ' (partial month)' : ''}`));
+    rect.addEventListener('mouseleave', hideTip);
+  });
+  // model launch markers
+  const monthX = t => {
+    const d = new Date(t);
+    const i = keys.indexOf(d.toISOString().slice(0,7));
+    return i < 0 ? null : PAD + i * bw + bw * ((d.getUTCDate() - 1) / 30);
+  };
+  drawEvents(svg, monthX, W, H - BOT);
+}
+
+// ---- scatter: changes per release ----
+function drawScatter() {
+  const svg = document.getElementById('scatter');
+  const W = CHART_W, H = W < 640 ? 260 : 320, PAD = W < 640 ? 34 : 40, BOT = 30;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+  const x = timeScale(chartStart.getTime(), last.getTime(), W, PAD);
+  const maxC = Math.max(...R.map(r => r.changes));
+  const y = c => H - BOT - c / maxC * (H - BOT - 48);
+  const stepC = Math.max(10, Math.ceil(maxC / 70) * 10);
+  for (let v = 0; v <= maxC; v += stepC) {
+    svg.insertAdjacentHTML('beforeend', `<line x1="${PAD}" y1="${y(v)}" x2="${W-16}" y2="${y(v)}" stroke="#21262d"/><text x="${PAD-8}" y="${y(v)+4}" text-anchor="end">${v}</text>`);
+  }
+  monthTicks(svg, x, 14, H - BOT);
+  R.filter(r => r.d >= chartStart).forEach(r => {
+    const cx = x(r.d.getTime()), cy = y(r.changes);
+    const rad = 2.5 + Math.sqrt(r.changes) * 0.7;
+    svg.insertAdjacentHTML('beforeend', `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="#d97757" opacity="0.55" data-i="${R.indexOf(r)}"/>`);
+  });
+  svg.querySelectorAll('circle').forEach(c => {
+    const rel = R[+c.dataset.i];
+    if (rel.changes > 0) {
+      c.style.cursor = 'pointer';
+      c.addEventListener('click', () => window.open(releaseUrl(rel.version), '_blank'));
+    }
+    c.addEventListener('mousemove', e => {
+      const r = R[+c.dataset.i];
+      showTip(e, `<b>v${r.version}</b> · ${fmt(r.d)}<br>${r.changes} changelog entr${r.changes===1?'y':'ies'}${r.highlight ? '<br><i>' + r.highlight.replace(/</g,'&lt;') + '</i>' : ''}`);
+      c.setAttribute('opacity', '1');
+    });
+    c.addEventListener('mouseleave', () => { hideTip(); c.setAttribute('opacity', '0.55'); });
+  });
+  // rolling average trend line makes the acceleration obvious
+  const trend = [];
+  for (let i = 0; i < R.length; i++) {
+    const win = R.slice(Math.max(0, i-12), i+13);
+    const avg = win.reduce((s,r)=>s+r.changes,0) / win.length;
+    if (R[i].d >= chartStart) trend.push([x(R[i].d.getTime()), y(avg)]);
+  }
+  svg.insertAdjacentHTML('beforeend',
+    `<path d="M${trend.map(p=>p.map(v=>v.toFixed(1)).join(',')).join('L')}" fill="none" stroke="#e6edf3" stroke-width="2.5" opacity="0.9"/>`);
+  drawEvents(svg, x, W, H - BOT);
+}
+
+function renderCharts() {
+  CHART_W = measureChartWidth();
+  drawMonthly();
+  drawScatter();
+}
+renderCharts();
+let lastChartW = CHART_W;
+window.addEventListener('resize', () => {
+  const w = measureChartWidth();
+  if (Math.abs(w - lastChartW) > 24) { lastChartW = w; renderCharts(); }
+});
+</script>
+</body>
+</html>

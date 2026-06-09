@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness Rush · How fast AI coding agents ship</title>
+<meta name="description" content="Release cadence dashboards for Claude Code and Codex, built from npm publish data and official changelogs.">
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #2d333b;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #d97757;
+    --accent-soft: rgba(217, 119, 87, 0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 16px; text-align: center; }
+  h1 { font-size: 2.6rem; letter-spacing: -0.02em; }
+  h1 .accent { color: var(--accent); }
+  p.sub { color: var(--muted); margin: 12px auto 40px; max-width: 560px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 20px; text-align: left; }
+  a.card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 26px; color: inherit; text-decoration: none; display: block;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  a.card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(217,119,87,0.12); }
+  .card h2 { font-size: 1.3rem; margin-bottom: 16px; color: var(--accent); }
+  a.card.codex h2 { color: #339cff; }
+  .card .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card .num { font-size: 1.35rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .card .label { color: var(--muted); font-size: 0.74rem; }
+  .card .go { margin-top: 20px; color: var(--accent); font-size: 0.88rem; font-weight: 600; }
+  a.card.codex .num, a.card.codex .go { color: #339cff; }
+  a.card.codex:hover { border-color: #339cff; box-shadow: 0 8px 28px rgba(0,106,255,0.15); }
+  footer { margin-top: 44px; color: var(--muted); font-size: 0.78rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span style="color:#339cff">Harness</span> <span class="accent">Rush</span></h1>
+  <p class="sub">How fast do AI coding agents ship? Release cadence dashboards built from npm publish timestamps and official changelogs.</p>
+  <div class="cards">
+    <a class="card" href="claude-code/">
+      <h2>Claude Code</h2>
+      <div class="grid" id="claude-stats"></div>
+      <div class="go">Explore the dashboard →</div>
+    </a>
+    <a class="card codex" href="codex/">
+      <h2>Codex</h2>
+      <div class="grid" id="codex-stats"></div>
+      <div class="go">Explore the dashboard →</div>
+    </a>
+  </div>
+  <footer>Data from the npm registry and official changelogs. Not affiliated with Anthropic or OpenAI.</footer>
+</div>
+<script src="claude-code/data.js"></script>
+<script>window.CLAUDE = window.RELEASES;</script>
+<script src="codex/data.js"></script>
+<script>window.CODEX = window.RELEASES;</script>
+<script>
+function cardStats(el, R) {
+  const ds = R.map(r => new Date(r.date));
+  const spanDays = (ds[ds.length-1] - ds[0]) / 86400000;
+  const gaps = ds.slice(1).map((d,i) => (d - ds[i]) / 86400000).sort((a,b)=>a-b);
+  const med = gaps[Math.floor(gaps.length/2)];
+  const total = R.reduce((s,r)=>s+r.changes, 0);
+  document.getElementById(el).innerHTML = [
+    [R.length, 'releases'],
+    [(R.length / (spanDays/7)).toFixed(1), 'releases / week'],
+    [med < 1 ? Math.round(med*24)+'h' : med.toFixed(1)+'d', 'median gap'],
+    [total.toLocaleString(), 'changelog entries'],
+  ].map(([n,l]) => `<div><div class="num">${n}</div><div class="label">${l}</div></div>`).join('');
+}
+cardStats('claude-stats', window.CLAUDE);
+cardStats('codex-stats', window.CODEX);
+</script>
+</body>
+</html>
