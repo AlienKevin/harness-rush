@@ -181,11 +181,11 @@ const EVENTS = MODELS.map(([name, ds], i) =>
 const MODEL_BY_DAY = Object.fromEntries(EVENTS.map(ev => [ev.date, ev.label]));
 // links to the original release notes
 const releaseUrl = v => `https://github.com/openai/codex/releases/tag/rust-v${v}`;
-const monthUrl = (k, ver) => `https://developers.openai.com/codex/changelog#month-${k}`;
+const monthUrl = (k, ver) => releaseUrl(ver);
 function drawEvents(svg, xOf, W, bottom) {
   EVENTS.forEach(ev => {
     const mx = xOf(ev.t);
-    if (mx == null || mx < 30) return;
+    if (mx == null || mx < 30 || ev.t < chartStart.getTime()) return;
     const narrow = W < 640;
     const ly = 12 + ev.row * 13;
     const anchorEnd = mx > W - 140;
@@ -281,7 +281,7 @@ function drawEvents(svg, xOf, W, bottom) {
     }
     const k = fmt(cur);
     const n = (cur >= chartStart ? byDay[k] : 0) || 0;
-    const model = MODEL_BY_DAY[k];
+    const model = cur >= chartStart ? MODEL_BY_DAY[k] : null;
     const cell = document.createElement('div');
     cell.className = 'hm-cell' + (n>0 ? ' l'+Math.min(n,4) : '') + (model ? ' model' : '');
     if (cur >= chartStart) {

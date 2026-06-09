@@ -53,8 +53,6 @@ PAGES = {
             # codex notes live on GitHub releases; months have docs-changelog anchors
             "const releaseUrl = v => `https://code.claude.com/docs/en/changelog#${v.replace(/\\./g, '-')}`;":
                 "const releaseUrl = v => `https://github.com/openai/codex/releases/tag/rust-v${v}`;",
-            'const monthUrl = (k, ver) => releaseUrl(ver);':
-                'const monthUrl = (k, ver) => `https://developers.openai.com/codex/changelog#month-${k}`;',
             # explain the 39-day gap (TS-to-Rust rewrite), instead of the generic date phrasing
             "(over the ${maxGapStart.getMonth() === 11 ? 'December holidays' : 'period starting ' + fmt(maxGapStart)})":
                 '(June 2025, when OpenAI paused npm releases while rewriting the CLI from TypeScript to Rust)',
