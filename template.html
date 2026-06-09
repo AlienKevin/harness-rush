@@ -250,7 +250,9 @@ function drawEvents(svg, xOf, W, bottom) {
   R.forEach(r => { const k = r.date.slice(0,7); entriesByMonth[k] = (entriesByMonth[k]||0) + r.changes; });
   const fullMonths = Object.keys(entriesByMonth).sort().slice(1, -1).filter(k => entriesByMonth[k] > 0);
   const avgOf = ms => ms.reduce((s,k) => s + entriesByMonth[k], 0) / ms.length;
-  const earlyM = Math.round(avgOf(fullMonths.slice(0, 3)));
+  // baseline: the 3-month window half a year before the most recent 3 full months
+  const baseMonths = fullMonths.length >= 9 ? fullMonths.slice(-9, -6) : fullMonths.slice(0, 3);
+  const earlyM = Math.round(avgOf(baseMonths));
   const lateM = Math.round(avgOf(fullMonths.slice(-3)));
   const rangeLabel = ms => {
     const a = new Date(ms[0] + '-15'), b = new Date(ms[ms.length-1] + '-15');
@@ -260,14 +262,14 @@ function drawEvents(svg, xOf, W, bottom) {
 
   document.getElementById('big-takeaways').innerHTML = [
     `Claude Code has shipped <b>${perDay} releases per day for ${months} months straight</b>. The median gap between releases is just ${medGapStr}.`,
-    `Shipping volume has exploded: <b>~${Math.round(lateM / 30.4)} improvements a day now, up from ~${Math.round(earlyM / 30.4)} a day in ${rangeLabel(fullMonths.slice(0, 3))}</b>, as measured by changelog entries.`,
+    `Shipping volume has exploded: <b>~${Math.round(lateM / 30.4)} improvements a day now, up from ~${Math.round(earlyM / 30.4)} a day half a year ago (${rangeLabel(baseMonths)})</b>, as measured by changelog entries.`,
     `The pace never breaks: the <b>longest pause in the entire history is ${Math.round(maxGap)} days</b> (over the ${maxGapStart.getMonth() === 11 ? 'December holidays' : 'period starting ' + fmt(maxGapStart)}). No other gap exceeded ${Math.round(secondGap)} days.`,
   ].map(t => `<li>${t}</li>`).join('');
 
   document.getElementById('tk-heatmap').innerHTML =
     `At least one release landed on <b>${weekdayPct}% of all weekdays</b> (${releaseDays} distinct days total). Weekends aren't off-limits either: ${weekendReleases} releases landed on one.`;
   document.getElementById('tk-monthly').innerHTML =
-    `Change volume grew from ~${Math.round(earlyM / 30.4)} improvement${Math.round(earlyM / 30.4) === 1 ? '' : 's'} a day in ${rangeLabel(fullMonths.slice(0, 3))} to <b>~${Math.round(lateM / 30.4)} a day in ${rangeLabel(fullMonths.slice(-3))}</b>, <b>${Math.round(lateM / Math.max(earlyM, 1))}× more</b>.`;
+    `Change volume grew from ~${Math.round(earlyM / 30.4)} improvement${Math.round(earlyM / 30.4) === 1 ? '' : 's'} a day in ${rangeLabel(baseMonths)} to <b>~${Math.round(lateM / 30.4)} a day in ${rangeLabel(fullMonths.slice(-3))}</b>, <b>${Math.round(lateM / Math.max(earlyM, 1))}× more</b>.`;
   document.getElementById('tk-scatter').innerHTML =
     `Documented releases grew from ~${Math.round(avgEarly)} changelog entries each in their first months to <b>~${Math.round(avgLate)} entries each today, roughly ${growth}× more change shipped per release</b>.`;
 })();
